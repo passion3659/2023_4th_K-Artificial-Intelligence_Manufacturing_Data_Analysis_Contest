@@ -1,0 +1,38 @@
+randomforest:
+  n_estimators: 100  # 트리의 개수 (기본값: 100)
+  max_depth: 10  # 트리의 최대 깊이 (기본값: None, None일 경우 트리 깊이는 제한되지 않음)
+  min_samples_split: 2  # 노드를 분할하기 위한 최소 샘플 수 (기본값: 2)
+  min_samples_leaf: 1  # 리프 노드에 있어야 하는 최소 샘플 수 (기본값: 1)
+  max_features: 'sqrt'  # 트리에서 사용할 피처의 최대 수 ('sqrt', 'log2', 또는 None)
+  bootstrap: True  # 부트스트랩 샘플링 여부 (기본값: True)
+
+lightgbm:
+  num_leaves: 31  # 트리에서 사용할 리프의 최대 수
+  learning_rate: 0.1  # 학습률 (기본값: 0.1)
+  n_estimators: 1000  # 부스팅 반복 횟수 (기본값: 1000)
+  max_depth: -1  # 트리의 최대 깊이 (-1은 제한 없음)
+  subsample: 0.8  # 각 트리에 사용할 데이터 샘플 비율 (기본값: 1.0)
+  colsample_bytree: 0.8  # 각 트리에서 사용할 피처의 비율 (기본값: 1.0)
+  reg_alpha: 0.0  # L1 정규화 항 가중치 (기본값: 0.0)
+  reg_lambda: 1.0  # L2 정규화 항 가중치 (기본값: 0.0)
+
+xgboost:
+  max_depth: 6  # 트리의 최대 깊이 (기본값: 6)
+  learning_rate: 0.1  # 학습률 (기본값: 0.1)
+  n_estimators: 1000  # 부스팅 반복 횟수 (기본값: 1000)
+  colsample_bytree: 0.8  # 트리마다 사용할 피처 샘플 비율 (기본값: 1.0)
+  subsample: 0.8  # 각 부스팅 트리에 사용할 데이터 샘플 비율 (기본값: 1.0)
+  reg_alpha: 0  # L1 정규화 항의 가중치 (기본값: 0)
+  reg_lambda: 1  # L2 정규화 항의 가중치 (기본값: 1)
+  min_child_weight: 1  # 자식 노드가 분할되기 위한 최소 가중치 (기본값: 1)
+  gamma: 0  # 노드 분할을 위한 최소 손실 감소 값 (기본값: 0)
+
+catboost:
+  depth: 6  # 보통 기본값은 6
+  learning_rate: 0.1  # 일반적으로 기본값은 0.1
+  iterations: 1000  # 기본값 1000
+  subsample: 0.8  # 보통 기본값은 0.8
+  min_data_in_leaf: 10  # 일반적인 값
+  leaf_estimation_iterations: 10  # default 10
+  bagging_temperature: 1.0  # default 1.0
+  colsample_bylevel: 0.8  # default 0.8
