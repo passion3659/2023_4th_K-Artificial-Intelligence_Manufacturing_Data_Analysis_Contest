@@ -1,15 +1,28 @@
 import os
+import random
 import yaml
 import pickle
 import numpy as np
 import pandas as pd
+import torch
 
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
+def seed_everything(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
 
 def load_config(model_name):
     full_path = os.getcwd()
     config_path = os.path.join(full_path, 'config', 'config.yml')
-    with open(config_path, 'r') as file:
+    print(config_path)
+    with open(config_path, 'r', encoding="utf-8") as file:
         config = yaml.safe_load(file)
     return config[model_name]
 
@@ -59,14 +72,18 @@ def make_time_series(data, time_threshold=3000):
     # Iterate through the DataFrame to find gaps
     for idx in range(1, len(data)):
         if data.loc[idx, 'time_diff'] > time_threshold:  # If the gap is greater than the threshold
-            # Extract the interval and store it in the dictionary
-            time_series_dict[len(time_series_dict)] = data.iloc[start_idx:idx].reset_index(drop=True)
+            # Extract the interval without 'time_diff' and store it in the dictionary
+            time_series_dict[len(time_series_dict)] = data.iloc[start_idx:idx].drop(columns=['time_diff']).reset_index(drop=True)
             start_idx = idx
 
-    # Add the last interval
-    time_series_dict[len(time_series_dict)] = data.iloc[start_idx:].reset_index(drop=True)
+    # Add the last interval without 'time_diff'
+    time_series_dict[len(time_series_dict)] = data.iloc[start_idx:].drop(columns=['time_diff']).reset_index(drop=True)
+
+    # Drop the 'time_diff' column from the original DataFrame
+    data.drop(columns=['time_diff'], inplace=True)
 
     return time_series_dict
+
 
 def preprocess_time_series(time_series_dict):
     """
@@ -80,7 +97,7 @@ def preprocess_time_series(time_series_dict):
     """
 
     # Remove specified indices
-    indices_to_remove = [0, 6, 19, 26, 27, 42, 47, 72, 91, 94, 113, 114, 118, 135, 145, 146]
+    indices_to_remove = [0, 1, 6, 19, 26, 27, 114, 118, 135, 145, 146]
     for idx in indices_to_remove:
         if idx in time_series_dict:
             del time_series_dict[idx]
@@ -97,33 +114,176 @@ def preprocess_time_series(time_series_dict):
     if 137 in time_series_dict and 138 in time_series_dict:
         time_series_dict[137] = pd.concat([time_series_dict[137], time_series_dict[138]]).reset_index(drop=True)
         del time_series_dict[138]
+    
+    # separate dataframes
+    num = len(time_series_dict)
+    df = time_series_dict[8]
+    df1 = df.iloc[:316]
+    df2 = df.iloc[316:]
+    time_series_dict[8] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[30]
+    df1 = df.iloc[:441]
+    df2 = df.iloc[441:]
+    time_series_dict[30] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[42]
+    df1 = df.iloc[:557]
+    df2 = df.iloc[557:]
+    time_series_dict[42] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[47]
+    df1 = df.iloc[:892]
+    df2 = df.iloc[892:]
+    time_series_dict[47] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[72]
+    df1 = df.iloc[:559]
+    df2 = df.iloc[561:]
+    time_series_dict[72] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[91]
+    df1 = df.iloc[:958]
+    df2 = df.iloc[958:]
+    time_series_dict[91] = df1
+    time_series_dict[num] = df2
+    num = num+1
+
+    df = time_series_dict[94]
+    df1 = df.iloc[:945]
+    df2 = df.iloc[945:]
+
+    time_series_dict[94] = df1
+    time_series_dict[num] = df2
+    num = num+1
+    
+    df = time_series_dict[113]
+    df1 = df.iloc[:832]
+    df2 = df.iloc[832:]
+    time_series_dict[113] = df1
+    time_series_dict[num] = df2
+    num = num+1
 
     # Sort the dictionary keys to re-index it
-    time_series_dict = {i: time_series_dict[k] for i, k in enumerate(sorted(time_series_dict.keys()))}
+    time_series_dict = {i: df for i, (key, df) in enumerate(sorted(time_series_dict.items()), start=0)}
 
     return time_series_dict
 
-def make_dataframe(data_time_series):
+def split_by_process(data_time_series, train_ratio=0.8, val_ratio=0.1):
     """
-    Extracts the first 20 rows from each DataFrame in a dictionary and combines them into a single DataFrame.
+    Splits data by process into train, validation, and test sets based on the specified ratios.
 
     Parameters:
-    - data_time_series: A dictionary of DataFrames.
+    - data_time_series (dict): Dictionary containing time series DataFrames for each process
+    - train_ratio (float): Proportion of data to allocate to the train set (default: 0.8)
+    - val_ratio (float): Proportion of data to allocate to the validation set (default: 0.1)
 
     Returns:
-    - combined_df: A single DataFrame containing the first 20 rows of each DataFrame in the dictionary.
+    - train_data (dict): Dictionary of DataFrames for each process in the train set
+    - val_data (dict): Dictionary of DataFrames for each process in the validation set
+    - test_data (dict): Dictionary of DataFrames for each process in the test set
     """
-    # Extract the first 20 rows from each DataFrame and store in a list
-    df_list = [df.iloc[:20] for df in data_time_series.values()]
-    
-    # Concatenate all DataFrames in the list into a single DataFrame
-    combined_df = pd.concat(df_list, ignore_index=True)
-    
-    columns_to_drop = ['datetime', 'time_diff']
-    combined_df = combined_df.drop(columns=columns_to_drop)
-    
-    return combined_df
+    # Calculate indices for train, validation, and test splits
+    num_processes = len(data_time_series)
+    train_end = int(num_processes * train_ratio)
+    val_end = train_end + int(num_processes * val_ratio)
 
+    # Split data based on calculated indices
+    train_data = {key: data_time_series[key] for key in list(data_time_series.keys())[:train_end]}
+    val_data = {key: data_time_series[key] for key in list(data_time_series.keys())[train_end:val_end]}
+    test_data = {key: data_time_series[key] for key in list(data_time_series.keys())[val_end:]}
+
+    return train_data, val_data, test_data
+
+def interpolate(train_data, val_data, test_data, columns=['molten_temp', 'molten_volume']):
+    """
+    Fills missing values in specified columns using the median values calculated from the train set.
+
+    Parameters:
+    - train_data (dict): Dictionary of DataFrames for each process in the train set
+    - val_data (dict): Dictionary of DataFrames for each process in the validation set
+    - test_data (dict): Dictionary of DataFrames for each process in the test set
+    - columns (list): List of columns to fill missing values (default: ['molten_temp', 'molten_volume'])
+
+    Returns:
+    - train_data (dict): Updated train set with missing values filled
+    - val_data (dict): Updated validation set with missing values filled
+    - test_data (dict): Updated test set with missing values filled
+    """
+    # Step 1: Concatenate all train DataFrames to calculate median for specified columns
+    train_df = pd.concat(train_data.values(), ignore_index=True)
+    column_medians = {col: train_df[col].median() for col in columns}
+    
+    # Step 2: Fill missing values in each set (train, val, test) using the calculated medians
+    for data_dict in [train_data, val_data, test_data]:
+        for key, df in data_dict.items():
+            for col, median_val in column_medians.items():
+                df[col] = df[col].fillna(median_val)
+    
+    return train_data, val_data, test_data
+
+
+def apply_scaler(train_data, scaler_type='standard'):
+    """
+    Fits a scaler on the train set, excluding the datetime column, and returns the scaler.
+    
+    Parameters:
+    - train_data (dict): Dictionary of DataFrames for each process in the train set
+    - scaler_type (str): Type of scaler to use ('standard' or 'minmax')
+    
+    Returns:
+    - scaler: Fitted scaler object
+    """
+    # Concatenate all train DataFrames to fit scaler
+    train_df = pd.concat(train_data.values(), ignore_index=True)
+    
+    # Exclude the datetime column from scaling
+    feature_columns = train_df.columns.difference(['datetime','passorfail'])
+    
+    # Choose the scaler type based on the scaler_type argument
+    if scaler_type == 'minmax':
+        scaler = MinMaxScaler()
+    elif scaler_type == 'standard':
+        scaler = StandardScaler()
+    else:
+        raise ValueError("scaler_type must be either 'standard' or 'minmax'")
+    
+    # Fit the scaler on the feature columns in the train data
+    scaler.fit(train_df[feature_columns])
+    
+    return scaler
+
+def make_dataframe(data, time_interval):
+    # List to store selected DataFrames
+    selected_dfs = []
+    
+    for key, df in data.items():
+        # Convert the 'datetime' column to datetime format (if necessary)
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        
+        # Select data within the time_interval from the first row's datetime value
+        start_time = df['datetime'].iloc[0]
+        time_filtered_df = df[df['datetime'] <= start_time + pd.Timedelta(minutes=time_interval)]
+        
+        # Drop the 'datetime' column
+        time_filtered_df = time_filtered_df.drop(columns=['datetime'])
+        
+        # Append the filtered DataFrame to the list
+        selected_dfs.append(time_filtered_df)
+    
+    # Concatenate all filtered DataFrames into a single DataFrame
+    result_df = pd.concat(selected_dfs, ignore_index=True)
+    return result_df
 
 def remove_outlier(X, y): 
     condition = (
@@ -192,7 +352,4 @@ def load_model(model_name):
         return model
     else:
         raise FileNotFoundError(f"No model found at: {model_path}")
-
-
-
 
