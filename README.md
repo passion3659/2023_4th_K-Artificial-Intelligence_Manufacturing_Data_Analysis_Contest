@@ -39,9 +39,10 @@ python main_1_analysis.py
 ```
 
 ### path2
-Adjust the `ratio` and `gamma` values as needed when running the command.
+Adjust the `ratio` and `scaler` values as needed when running the command.<br>
+scaler options are standard or minmax.
 
 ```shell
-python main_2.py --ratio 1.0 --gamma 1.0
+main_2.py --ratio 5.0 --scaler standard
 
 ```
