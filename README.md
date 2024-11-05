@@ -7,7 +7,7 @@ This project analyzes early-stage data to identify factors influencing product q
 ## Setup
 ```shell
 conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia
-pip install numpy==1.26.4 pandas==2.2.2 matplotlib==3.9.0 seaborn==0.13.2 tqdm==4.66.4 optuna==1.0.0
+pip install numpy==1.26.4 pandas==2.2.2 matplotlib==3.9.0 seaborn==0.13.2 tqdm==4.66.4 optuna==4.0.0
 pip install scikit-learn==1.5.1 xgboost==2.1.2 lightgbm==4.5.0 catboost==1.2.5
 ```
 ## Data Preparation
@@ -29,9 +29,9 @@ python main_1.py --model lightgbm --mode infer
 ### Available Models
 - decisiontree
 - randomforest
-- lightgbm
 - xgboost
-- catboost
+- lightgbm
+
 
 Run the code and check the `plots` folder for generated plots.
 ```shell
